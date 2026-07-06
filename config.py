@@ -20,15 +20,15 @@ PRICE_THRESHOLDS = {
 }
 
 MODEL_MIN_PRICE = {
-    "iphone 14 pro max": 100,
+    "iphone 14 pro max": 1,
     "iphone 15 pro": 110,
-    "iphone 15 pro max": 130,
+    "iphone 15 pro max": 1,
     "iphone 16": 120,
     "iphone 16 pro": 150,
-    "iphone 16 pro max": 170,
+    "iphone 16 pro max": 1,
     "iphone 17": 170,
     "iphone 17 pro": 300,
-    "iphone 17 pro max": 350,
+    "iphone 17 pro max": 1,
 }
 
 MIN_PRICE = 75
