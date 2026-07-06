@@ -65,13 +65,14 @@ class EbayMonitor:
         self.token = None
         self.token_exp = 0
         self.token_lock = threading.Lock()
-        self.session = requests.Session()
+        self.rate_limit_until = 0
 
-    def close(self):
-        try:
-            self.session.close()
-        except Exception:
-            pass
+    def is_rate_limited(self):
+        return time.time() < self.rate_limit_until
+
+    def trigger_rate_limit_cooldown(self):
+        self.rate_limit_until = time.time() + config.RATE_LIMIT_COOLDOWN_SECONDS
+        print(f"[eBay] 429 rate limit. Cooling down {config.RATE_LIMIT_COOLDOWN_SECONDS}s.")
 
     def get_token(self):
         now = datetime.now().timestamp()
@@ -86,7 +87,7 @@ class EbayMonitor:
                 return self.token
 
             try:
-                r = self.session.post(
+                r = requests.post(
                     "https://api.ebay.com/identity/v1/oauth2/token",
                     auth=(self.app_id, self.cert_id),
                     data={
@@ -103,6 +104,10 @@ class EbayMonitor:
                     print("[eBay] Token refreshed")
                     return self.token
 
+                if r.status_code == 429:
+                    self.trigger_rate_limit_cooldown()
+                    return None
+
                 print(f"[eBay] Token failed: {r.status_code} {r.text[:200]}")
 
             except Exception as e:
@@ -111,13 +116,15 @@ class EbayMonitor:
         return None
 
     def search(self, query):
-        token = self.get_token()
+        if self.is_rate_limited():
+            return []
 
+        token = self.get_token()
         if not token:
             return []
 
         try:
-            r = self.session.get(
+            r = requests.get(
                 "https://api.ebay.com/buy/browse/v1/item_summary/search",
                 headers={"Authorization": f"Bearer {token}"},
                 params={
@@ -133,8 +140,7 @@ class EbayMonitor:
                 return r.json().get("itemSummaries", [])
 
             if r.status_code == 429:
-                print("[eBay] Rate limited. Backing off 10s.")
-                time.sleep(10)
+                self.trigger_rate_limit_cooldown()
                 return []
 
             print(f"[eBay] Search failed for {query}: {r.status_code} {r.text[:200]}")
@@ -187,28 +193,22 @@ class EbayMonitor:
                     seen_listings.mark_seen(listing_id, seen_dict)
                     continue
 
-                item_creation_date = item.get("itemCreationDate")
-                created_time = parse_ebay_time(item_creation_date)
-
+                created_time = parse_ebay_time(item.get("itemCreationDate"))
                 if config.MAX_LISTING_AGE_SECONDS and created_time:
                     age_seconds = (now - created_time).total_seconds()
-
                     if age_seconds > config.MAX_LISTING_AGE_SECONDS:
                         stats["too_old"] += 1
                         seen_listings.mark_seen(listing_id, seen_dict)
                         continue
 
                 auction_mins_left = None
-
                 if is_auction:
                     end_time = parse_ebay_time(item.get("itemEndDate") or item.get("auctionEndTime"))
-
                     if not end_time:
                         stats["auction_not_ending"] += 1
                         continue
 
                     mins_left = (end_time - now).total_seconds() / 60
-
                     if mins_left > config.AUCTION_ENDING_ALERT_MINUTES or mins_left < 0:
                         stats["auction_not_ending"] += 1
                         continue
@@ -233,7 +233,6 @@ class EbayMonitor:
                     continue
 
                 model_min = config.MODEL_MIN_PRICE.get(model, config.MIN_PRICE)
-
                 if price < model_min:
                     stats["below_model_min"] += 1
                     seen_listings.mark_seen(listing_id, seen_dict)
@@ -289,6 +288,10 @@ class EbayMonitor:
         if not models:
             return all_alerts
 
+        if self.is_rate_limited():
+            print(f"[{tier_label}] Skipped because eBay is cooling down.")
+            return all_alerts
+
         max_workers = min(len(models), config.MAX_WORKERS)
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -299,7 +302,6 @@ class EbayMonitor:
 
             for future in as_completed(futures):
                 model = futures[future]
-
                 try:
                     alerts = future.result()
                     all_alerts.extend(alerts)
