@@ -1,19 +1,24 @@
 import os
 
-# ------------------------
-# ENVIRONMENT VARIABLES
-# ------------------------
+# ==========================
+# TELEGRAM
+# ==========================
+
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "6742644884")
+
+# ==========================
+# EBAY
+# ==========================
 
 EBAY_ENABLED = os.environ.get("EBAY_ENABLED", "true").lower() == "true"
 EBAY_APP_ID = os.environ.get("EBAY_APP_ID", "")
 EBAY_CERT_ID = os.environ.get("EBAY_CERT_ID", "")
 
-# ------------------------
+# ==========================
 # PRICE THRESHOLDS
-# Alert if price <= threshold
-# ------------------------
+# ==========================
+
 PRICE_THRESHOLDS = {
     "iphone 14 pro max": 321,
     "iphone 15 pro": 389,
@@ -26,7 +31,6 @@ PRICE_THRESHOLDS = {
     "iphone 17 pro max": 919,
 }
 
-# Ignore suspiciously low prices per model
 MODEL_MIN_PRICE = {
     "iphone 14 pro max": 100,
     "iphone 15 pro": 110,
@@ -41,73 +45,59 @@ MODEL_MIN_PRICE = {
 
 MIN_PRICE = 75
 
-# ------------------------
+# ==========================
 # FILTERS
-# ------------------------
+# ==========================
+
 EXCLUDE_KEYWORDS = [
-    "16e", "17e", "iphone 16e", "iphone 17e",
+    "16e",
+    "17e",
+    "iphone 16e",
+    "iphone 17e",
 ]
 
-SCAM_KEYWORDS = [
-    "check esn", "bad esn", "unknown esn", "esn bad",
-    "icloud locked", "icloud lock", "locked to icloud", "activation lock",
-    "not paid off", "still financed", "still on contract",
-    "blacklisted", "blocked imei", "bad imei",
-]
-
+MAX_LISTING_AGE_SECONDS = 240
 AUCTION_ENDING_ALERT_MINUTES = 15
 
-# Only alert listings that eBay says are newer than this.
-# Use 0 to disable age filter.
-MAX_LISTING_AGE_SECONDS = 300
+# ==========================
+# PAUSE HOURS
+# ==========================
 
-# ------------------------
-# QUIET HOURS, EASTERN TIME
-# ------------------------
 PAUSE_START_HOUR = 2
 PAUSE_END_HOUR = 10
 
-# ------------------------
+# ==========================
 # MODEL GROUPS
-# Keep hot small so it runs often.
-# ------------------------
+# ==========================
+
 HOT_MODELS = [
+    "iphone 14 pro max",
     "iphone 15 pro max",
     "iphone 16 pro max",
 ]
 
 MID_MODELS = [
-    "iphone 14 pro max",
     "iphone 15 pro",
     "iphone 16",
     "iphone 16 pro",
 ]
 
 RARE_MODELS = [
-    "iphone 17",
-    "iphone 17 pro",
     "iphone 17 pro max",
+    "iphone 17 pro",
+    "iphone 17",
 ]
 
-# ------------------------
-# SCAN SPEED
-# This stays under 5k/day because quiet hours pause 8 hours.
-# HOT: 2 models every 25s = 288 calls/hr
-# MID: 4 models every 120s = 120 calls/hr
-# RARE: 3 models every 360s = 30 calls/hr
-# Total ≈ 438 calls/hr × 16 hrs = 7008 calls, too high if all active.
-# Safer default below ≈ 4432 calls over 16 active hrs.
-# ------------------------
-HOT_INTERVAL = 40
-MID_INTERVAL = 180
-RARE_INTERVAL = 480
+# ==========================
+# SCAN INTERVALS (SECONDS)
+# ==========================
 
-# If you want more aggressive later:
-# HOT_INTERVAL = 25
-# MID_INTERVAL = 180
-# RARE_INTERVAL = 600
+HOT_INTERVAL = 20
+MID_INTERVAL = 60
+RARE_INTERVAL = 180
 
-REQUEST_TIMEOUT_SECONDS = 8
-MAX_WORKERS = 9
+# ==========================
+# STORAGE
+# ==========================
 
 SEEN_LISTINGS_FILE = "seen_listings.json"
