@@ -1,23 +1,11 @@
 import os
 
-# ==========================
-# TELEGRAM
-# ==========================
-
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "6742644884")
-
-# ==========================
-# EBAY
-# ==========================
 
 EBAY_ENABLED = os.environ.get("EBAY_ENABLED", "true").lower() == "true"
 EBAY_APP_ID = os.environ.get("EBAY_APP_ID", "")
 EBAY_CERT_ID = os.environ.get("EBAY_CERT_ID", "")
-
-# ==========================
-# PRICE THRESHOLDS
-# ==========================
 
 PRICE_THRESHOLDS = {
     "iphone 14 pro max": 321,
@@ -45,30 +33,20 @@ MODEL_MIN_PRICE = {
 
 MIN_PRICE = 75
 
-# ==========================
-# FILTERS
-# ==========================
+EXCLUDE_KEYWORDS = ["16e", "17e", "iphone 16e", "iphone 17e"]
 
-EXCLUDE_KEYWORDS = [
-    "16e",
-    "17e",
-    "iphone 16e",
-    "iphone 17e",
+SCAM_KEYWORDS = [
+    "check esn", "bad esn", "unknown esn", "esn bad",
+    "icloud locked", "icloud lock", "locked to icloud", "activation lock",
+    "not paid off", "still financed", "still on contract",
+    "blacklisted", "blocked imei", "bad imei",
 ]
 
 MAX_LISTING_AGE_SECONDS = 240
 AUCTION_ENDING_ALERT_MINUTES = 15
 
-# ==========================
-# PAUSE HOURS
-# ==========================
-
 PAUSE_START_HOUR = 2
 PAUSE_END_HOUR = 10
-
-# ==========================
-# MODEL GROUPS
-# ==========================
 
 HOT_MODELS = [
     "iphone 14 pro max",
@@ -88,21 +66,11 @@ RARE_MODELS = [
     "iphone 17",
 ]
 
-# ==========================
-# SCAN INTERVALS (SECONDS)
-# ==========================
-
 HOT_INTERVAL = 20
 MID_INTERVAL = 60
 RARE_INTERVAL = 180
 
-# ==========================
-# STORAGE
-# ==========================
+MAX_WORKERS = 3
+REQUEST_TIMEOUT_SECONDS = 10
 
 SEEN_LISTINGS_FILE = "seen_listings.json"
-# ==========================
-# PARALLEL SCANNING
-# ==========================
-
-MAX_WORKERS = 3
