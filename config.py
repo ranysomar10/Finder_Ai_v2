@@ -101,3 +101,8 @@ RARE_INTERVAL = 180
 # ==========================
 
 SEEN_LISTINGS_FILE = "seen_listings.json"
+# ==========================
+# PARALLEL SCANNING
+# ==========================
+
+MAX_WORKERS = 3
