@@ -43,8 +43,7 @@ def parse_ebay_time(value):
 
 
 def is_scam(title):
-    t = title.lower()
-    return any(kw in t for kw in config.SCAM_KEYWORDS)
+    return any(kw in title.lower() for kw in config.SCAM_KEYWORDS)
 
 
 def is_unlocked_only_violation(title, model):
@@ -82,6 +81,7 @@ class EbayMonitor:
 
         with self.token_lock:
             now = datetime.now().timestamp()
+
             if self.token and now < self.token_exp:
                 return self.token
 
@@ -112,6 +112,7 @@ class EbayMonitor:
 
     def search(self, query):
         token = self.get_token()
+
         if not token:
             return []
 
@@ -144,9 +145,26 @@ class EbayMonitor:
         return []
 
     def scan_one_model(self, query, seen_dict, tier_label):
+        started = time.time()
         alerts = []
         now = datetime.now(timezone.utc)
         results = self.search(query)
+
+        stats = {
+            "results": len(results),
+            "already_seen": 0,
+            "too_cheap": 0,
+            "too_old": 0,
+            "auction_not_ending": 0,
+            "no_model": 0,
+            "excluded": 0,
+            "above_threshold": 0,
+            "below_model_min": 0,
+            "scam": 0,
+            "carrier_locked_high_tier": 0,
+            "errors": 0,
+            "alerts": 0,
+        }
 
         for item in results:
             try:
@@ -157,53 +175,77 @@ class EbayMonitor:
                 is_auction = "AUCTION" in item.get("buyingOptions", [])
 
                 if not listing_id:
+                    stats["errors"] += 1
                     continue
 
                 if seen_listings.is_seen(listing_id, seen_dict):
+                    stats["already_seen"] += 1
                     continue
 
                 if price < config.MIN_PRICE:
+                    stats["too_cheap"] += 1
                     seen_listings.mark_seen(listing_id, seen_dict)
                     continue
 
-                # Freshness filter: avoids pinging old listings eBay returns late.
-                max_age = getattr(config, "MAX_LISTING_AGE_SECONDS", 0)
                 item_creation_date = item.get("itemCreationDate")
                 created_time = parse_ebay_time(item_creation_date)
-                if max_age and created_time:
+
+                if config.MAX_LISTING_AGE_SECONDS and created_time:
                     age_seconds = (now - created_time).total_seconds()
-                    if age_seconds > max_age:
+
+                    if age_seconds > config.MAX_LISTING_AGE_SECONDS:
+                        stats["too_old"] += 1
                         seen_listings.mark_seen(listing_id, seen_dict)
                         continue
 
                 auction_mins_left = None
+
                 if is_auction:
                     end_time = parse_ebay_time(item.get("itemEndDate") or item.get("auctionEndTime"))
+
                     if not end_time:
+                        stats["auction_not_ending"] += 1
                         continue
 
                     mins_left = (end_time - now).total_seconds() / 60
+
                     if mins_left > config.AUCTION_ENDING_ALERT_MINUTES or mins_left < 0:
+                        stats["auction_not_ending"] += 1
                         continue
 
                     auction_mins_left = int(mins_left)
 
                 should_alert, model, threshold = listing_matcher.should_alert(title, price)
 
+                if not model:
+                    stats["no_model"] += 1
+                    seen_listings.mark_seen(listing_id, seen_dict)
+                    continue
+
+                if threshold is None:
+                    stats["excluded"] += 1
+                    seen_listings.mark_seen(listing_id, seen_dict)
+                    continue
+
                 if not should_alert:
+                    stats["above_threshold"] += 1
                     seen_listings.mark_seen(listing_id, seen_dict)
                     continue
 
                 model_min = config.MODEL_MIN_PRICE.get(model, config.MIN_PRICE)
+
                 if price < model_min:
+                    stats["below_model_min"] += 1
                     seen_listings.mark_seen(listing_id, seen_dict)
                     continue
 
                 if is_scam(title):
+                    stats["scam"] += 1
                     seen_listings.mark_seen(listing_id, seen_dict)
                     continue
 
                 if is_unlocked_only_violation(title, model):
+                    stats["carrier_locked_high_tier"] += 1
                     seen_listings.mark_seen(listing_id, seen_dict)
                     continue
 
@@ -211,7 +253,6 @@ class EbayMonitor:
                 if is_auction and auction_mins_left is not None:
                     extra = f"🔥 Ending Auction · {auction_mins_left} min left"
 
-                # Alert immediately before extra logging/saving.
                 telegram_notifier.send_alert(
                     title=title,
                     price=price,
@@ -223,19 +264,32 @@ class EbayMonitor:
 
                 seen_listings.mark_seen(listing_id, seen_dict)
                 alerts.append({"title": title, "price": price, "model": model})
+                stats["alerts"] += 1
 
             except Exception as e:
+                stats["errors"] += 1
                 print(f"[Scan] Item error: {e}")
 
-        print(f"[{tier_label}] Searched {query}: {len(results)} results | {len(alerts)} alerts")
+        elapsed = round(time.time() - started, 2)
+
+        print(
+            f"\n[{tier_label}] {query}\n"
+            f"Results: {stats['results']} | Alerts: {stats['alerts']} | Time: {elapsed}s\n"
+            f"Seen: {stats['already_seen']} | Too Old: {stats['too_old']} | Above Price: {stats['above_threshold']}\n"
+            f"No Model: {stats['no_model']} | Excluded: {stats['excluded']} | Scam: {stats['scam']}\n"
+            f"Too Cheap: {stats['too_cheap']} | Below Min: {stats['below_model_min']} | Carrier Block: {stats['carrier_locked_high_tier']}\n"
+            f"Auction Skip: {stats['auction_not_ending']} | Errors: {stats['errors']}\n"
+        )
+
         return alerts
 
     def scan_models_parallel(self, models, seen_dict, tier_label):
         all_alerts = []
-        max_workers = min(len(models), config.MAX_WORKERS)
 
         if not models:
             return all_alerts
+
+        max_workers = min(len(models), config.MAX_WORKERS)
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
@@ -245,6 +299,7 @@ class EbayMonitor:
 
             for future in as_completed(futures):
                 model = futures[future]
+
                 try:
                     alerts = future.result()
                     all_alerts.extend(alerts)
