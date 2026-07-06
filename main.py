@@ -22,6 +22,7 @@ def is_quiet_hours():
 
 def reset_seen_if_new_day(seen_dict):
     global last_reset_date
+
     today = datetime.datetime.now(TIMEZONE).date()
 
     if last_reset_date is None:
@@ -41,16 +42,11 @@ def sleep_until_active():
     now = datetime.datetime.now(TIMEZONE)
     seconds_until_wake = ((QUIET_END - now.hour) * 3600) - (now.minute * 60) - now.second
 
-    if seconds_until_wake <= 0:
-        seconds_until_wake += 24 * 3600
-
     print(f"😴 Quiet hours. Sleeping {seconds_until_wake // 60} min...")
-    telegram_notifier.send_daily_summary()
     telegram_notifier.send_status_message(
-        "😴 <b>Bot paused for quiet hours</b>\n\nSleeping until <b>10:00 AM ET</b>."
+        "😴 <b>Bot paused for quiet hours</b>\nSleeping until 10:00 AM ET."
     )
     time.sleep(max(1, seconds_until_wake))
-    telegram_notifier.send_status_message("🟢 <b>Bot resumed.</b> Back to scanning.")
 
 
 def run_loop():
@@ -63,9 +59,7 @@ def run_loop():
     print("=" * 60)
 
     telegram_notifier.send_status_message(
-        "🟢 <b>Finder AI v2 started</b>\n\n"
-        "⚡ Parallel scanning enabled\n"
-        "🆕 newest listings first"
+        "🟢 <b>Finder AI v2 started</b>\nFast parallel scanner is online."
     )
 
     seen_dict = seen_listings.load_seen()
@@ -74,16 +68,20 @@ def run_loop():
     ebay = EbayMonitor()
 
     now_ts = time.time()
-    next_hot = now_ts
-    next_mid = now_ts
-    next_rare = now_ts
 
-    try:
-        while True:
+    # Stagger startup so it does NOT blast 9 requests instantly.
+    next_hot = now_ts
+    next_mid = now_ts + 35
+    next_rare = now_ts + 90
+
+    while True:
+        try:
             if is_quiet_hours():
                 sleep_until_active()
                 now_ts = time.time()
-                next_hot = next_mid = next_rare = now_ts
+                next_hot = now_ts
+                next_mid = now_ts + 35
+                next_rare = now_ts + 90
 
             reset_seen_if_new_day(seen_dict)
 
@@ -93,29 +91,37 @@ def run_loop():
 
             now_ts = time.time()
 
-            try:
-                if now_ts >= next_hot:
-                    ebay.scan_models_parallel(config.HOT_MODELS, seen_dict, "HOT 🔥")
-                    next_hot = time.time() + config.HOT_INTERVAL
+            if ebay.is_rate_limited():
+                wait_left = int(ebay.rate_limit_until - time.time())
+                print(f"[Rate Limit] Cooling down for {max(wait_left, 0)}s")
+                time.sleep(10)
+                continue
 
-                if now_ts >= next_mid:
-                    ebay.scan_models_parallel(config.MID_MODELS, seen_dict, "MID ⚡")
-                    next_mid = time.time() + config.MID_INTERVAL
-
-                if now_ts >= next_rare:
-                    ebay.scan_models_parallel(config.RARE_MODELS, seen_dict, "RARE 🐢")
-                    next_rare = time.time() + config.RARE_INTERVAL
-
+            if now_ts >= next_hot:
+                ebay.scan_models_parallel(config.HOT_MODELS, seen_dict, "HOT 🔥")
                 seen_listings.save_seen(seen_dict)
+                next_hot = time.time() + config.HOT_INTERVAL
 
-            except Exception as e:
-                print(f"[Loop] ❌ Error: {e}")
-                traceback.print_exc()
+            now_ts = time.time()
 
-            time.sleep(1)
+            if now_ts >= next_mid:
+                ebay.scan_models_parallel(config.MID_MODELS, seen_dict, "MID ⚡")
+                seen_listings.save_seen(seen_dict)
+                next_mid = time.time() + config.MID_INTERVAL
 
-    finally:
-        ebay.close()
+            now_ts = time.time()
+
+            if now_ts >= next_rare:
+                ebay.scan_models_parallel(config.RARE_MODELS, seen_dict, "RARE 🐢")
+                seen_listings.save_seen(seen_dict)
+                next_rare = time.time() + config.RARE_INTERVAL
+
+            time.sleep(2)
+
+        except Exception as e:
+            print(f"[Loop] ❌ Error: {e}")
+            traceback.print_exc()
+            time.sleep(5)
 
 
 if __name__ == "__main__":
@@ -128,13 +134,3 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n👋 Stopping bot")
         telegram_notifier.send_status_message("🔴 Finder AI v2 stopped.")
-    except Exception as e:
-        print(f"\n💥 Fatal error: {e}")
-        traceback.print_exc()
-        try:
-            telegram_notifier.send_status_message(
-                f"💥 <b>Bot crashed:</b>\n<code>{str(e)[:500]}</code>"
-            )
-        except Exception:
-            pass
-        exit(1)
