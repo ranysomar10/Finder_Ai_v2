@@ -8,7 +8,7 @@ EBAY_APP_ID = os.environ.get("EBAY_APP_ID", "")
 EBAY_CERT_ID = os.environ.get("EBAY_CERT_ID", "")
 
 PRICE_THRESHOLDS = {
-    "iphone 14 pro max": 321,
+    "iphone 14 pro max": 999,
     "iphone 15 pro": 389,
     "iphone 15 pro max": 459,
     "iphone 16": 392,
