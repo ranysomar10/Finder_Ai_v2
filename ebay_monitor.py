@@ -12,7 +12,6 @@ import seen_listings
 import telegram_notifier
 
 
-
 HIGH_TIER_MODELS = [
     "iphone 16",
     "iphone 16 pro",
@@ -106,10 +105,18 @@ class EbayMonitor:
                     return self.token
 
                 if r.status_code == 429:
+                    print("========== EBAY TOKEN 429 ==========")
+                    print("Response:")
+                    print(r.text)
+                    print("Headers:")
+                    print(dict(r.headers))
+                    print("====================================")
                     self.trigger_rate_limit_cooldown()
                     return None
 
-                print(f"[eBay] Token failed: {r.status_code} {r.text[:200]}")
+                print(f"[eBay] Token failed: {r.status_code}")
+                print(r.text)
+                print(dict(r.headers))
 
             except Exception as e:
                 print(f"[eBay] Token error: {e}")
@@ -141,10 +148,19 @@ class EbayMonitor:
                 return r.json().get("itemSummaries", [])
 
             if r.status_code == 429:
+                print("========== EBAY SEARCH 429 ==========")
+                print(f"Query: {query}")
+                print("Response:")
+                print(r.text)
+                print("Headers:")
+                print(dict(r.headers))
+                print("=====================================")
                 self.trigger_rate_limit_cooldown()
                 return []
 
-            print(f"[eBay] Search failed for {query}: {r.status_code} {r.text[:200]}")
+            print(f"[eBay] Search failed for {query}: {r.status_code}")
+            print(r.text)
+            print(dict(r.headers))
 
         except Exception as e:
             print(f"[eBay] Search error for {query}: {e}")
@@ -201,16 +217,6 @@ class EbayMonitor:
                         stats["too_old"] += 1
                         seen_listings.mark_seen(listing_id, seen_dict)
                         continue
-
-                         if r.status_code == 429:
-    print("========== EBAY 429 ==========")
-    print("Response:")
-    print(r.text)
-    print("Headers:")
-    print(dict(r.headers))
-    print("==============================")
-    self.trigger_rate_limit_cooldown()
-    return []
 
                 auction_mins_left = None
                 if is_auction:
