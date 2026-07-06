@@ -1,24 +1,11 @@
 import os
 
-# =====================================================
-# TELEGRAM
-# =====================================================
-
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "6742644884")
 
-# =====================================================
-# EBAY
-# =====================================================
-
 EBAY_ENABLED = os.environ.get("EBAY_ENABLED", "true").lower() == "true"
-
 EBAY_APP_ID = os.environ.get("EBAY_APP_ID", "")
 EBAY_CERT_ID = os.environ.get("EBAY_CERT_ID", "")
-
-# =====================================================
-# PRICE SETTINGS
-# =====================================================
 
 PRICE_THRESHOLDS = {
     "iphone 14 pro max": 321,
@@ -46,10 +33,6 @@ MODEL_MIN_PRICE = {
 
 MIN_PRICE = 75
 
-# =====================================================
-# FILTERS
-# =====================================================
-
 EXCLUDE_KEYWORDS = [
     "16e",
     "17e",
@@ -58,35 +41,17 @@ EXCLUDE_KEYWORDS = [
 ]
 
 SCAM_KEYWORDS = [
-    "check esn",
-    "bad esn",
-    "unknown esn",
-    "esn bad",
-    "icloud locked",
-    "icloud lock",
-    "locked to icloud",
-    "activation lock",
-    "not paid off",
-    "still financed",
-    "still on contract",
-    "blacklisted",
-    "blocked imei",
-    "bad imei",
+    "check esn", "bad esn", "unknown esn", "esn bad",
+    "icloud locked", "icloud lock", "locked to icloud", "activation lock",
+    "not paid off", "still financed", "still on contract",
+    "blacklisted", "blocked imei", "bad imei",
 ]
 
-MAX_LISTING_AGE_SECONDS = 240
+MAX_LISTING_AGE_SECONDS = 300
 AUCTION_ENDING_ALERT_MINUTES = 15
-
-# =====================================================
-# QUIET HOURS
-# =====================================================
 
 PAUSE_START_HOUR = 2
 PAUSE_END_HOUR = 10
-
-# =====================================================
-# MODEL GROUPS
-# =====================================================
 
 HOT_MODELS = [
     "iphone 14 pro max",
@@ -106,28 +71,12 @@ RARE_MODELS = [
     "iphone 17 pro max",
 ]
 
-# =====================================================
-# SCAN SPEED
-# =====================================================
-
-HOT_INTERVAL = 20
-MID_INTERVAL = 60
-RARE_INTERVAL = 180
-
-# =====================================================
-# NETWORK
-# =====================================================
-
-REQUEST_TIMEOUT_SECONDS = 10
-
-# =====================================================
-# PARALLEL SCANNING
-# =====================================================
+HOT_INTERVAL = 30
+MID_INTERVAL = 90
+RARE_INTERVAL = 240
 
 MAX_WORKERS = 3
-
-# =====================================================
-# STORAGE
-# =====================================================
+REQUEST_TIMEOUT_SECONDS = 10
+RATE_LIMIT_COOLDOWN_SECONDS = 120
 
 SEEN_LISTINGS_FILE = "seen_listings.json"
