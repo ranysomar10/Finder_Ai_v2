@@ -12,6 +12,7 @@ import seen_listings
 import telegram_notifier
 
 
+
 HIGH_TIER_MODELS = [
     "iphone 16",
     "iphone 16 pro",
@@ -200,6 +201,16 @@ class EbayMonitor:
                         stats["too_old"] += 1
                         seen_listings.mark_seen(listing_id, seen_dict)
                         continue
+
+                         if r.status_code == 429:
+    print("========== EBAY 429 ==========")
+    print("Response:")
+    print(r.text)
+    print("Headers:")
+    print(dict(r.headers))
+    print("==============================")
+    self.trigger_rate_limit_cooldown()
+    return []
 
                 auction_mins_left = None
                 if is_auction:
